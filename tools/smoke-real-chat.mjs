@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {findCodex,createCodexRunner} from '../src/codex-chat.mjs';
+const root=fileURLToPath(new URL('../',import.meta.url));
+const started=Date.now();
+const run=createCodexRunner({executable:findCodex(),cwd:path.join(root,'data','chat-workspace'),timeoutMs:55000});
+const reply=await run([{role:'user',content:'本次是桌宠连接测试。只回复“连接成功”四个字。不要使用任何工具。'}]);
+const result={ok:reply.includes('连接成功'),reply,elapsedMs:Date.now()-started};
+fs.writeFileSync(path.join(root,'real-chat-smoke.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
+if(!result.ok)process.exitCode=1;

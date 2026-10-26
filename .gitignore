@@ -1,0 +1,20 @@
+# Local accounts, capabilities, pet conversations and Electron profile
+/data/
+/logs/
+/node_modules/
+/local-config.json
+.env
+.env.*
+!.env.example
+*.log
+
+# Generated checks from this installation
+/final-check.json
+/integration-result.json
+/real-chat-smoke.json
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

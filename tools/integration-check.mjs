@@ -1,0 +1,28 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import crypto from 'node:crypto';
+import assert from 'node:assert/strict';
+import {fileURLToPath} from 'node:url';
+const root=fileURLToPath(new URL('../',import.meta.url));
+const read=file=>JSON.parse(fs.readFileSync(path.join(root,file),'utf8'));
+const bridge=read('data/bridge-runtime.json');
+let pet;
+for(let i=0;i<80;i++){try{pet=read('data/dsh-pet/standalone-runtime.json');const ready=await fetch(`http://127.0.0.1:${bridge.port}/health`);if((await ready.json()).petReady)break;}catch{}await new Promise(r=>setTimeout(r,250));}
+assert.ok(pet?.port,'桌宠服务未就绪');
+const base=`http://127.0.0.1:${pet.port}`,headers={'content-type':'application/json','x-dsh-pet-token':pet.token};
+const source=path.resolve(process.env.DSH_PET_SOURCE || path.join(os.homedir(),'.dsh','profiles','desktop','node_modules','dsh-pet'));
+const original=path.join(source,'assets','webm');
+const copied=path.join(root,'vendor','dsh-pet','assets','webm');
+const sha=file=>crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+const files=fs.readdirSync(original).filter(name=>name.endsWith('.webm'));
+for(const file of files)assert.equal(sha(path.join(original,file)),sha(path.join(copied,file)),file+' 被意外改变');
+const control=await fetch(`http://127.0.0.1:${bridge.port}/control/preferences`,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+bridge.token},body:JSON.stringify({automaticWhispers:false})});assert.equal(control.status,200);
+const started=Date.now();
+const chatResponse=await fetch(base+'/dsh-pet-7340/chat?pet=main&surface=desktop',{method:'POST',headers,body:JSON.stringify({text:'这是连接测试。请用一句话告诉我，你已经接上 ChatGPT 了。'}),signal:AbortSignal.timeout(65000)});
+const chat=await chatResponse.json();
+const stateResponse=await fetch(base+'/dsh-pet-7340/state?surface=desktop');const state=await stateResponse.json();
+const health=await(await fetch(`http://127.0.0.1:${bridge.port}/health`)).json();
+const result={ok:chat.ok===true,videoFilesUnchanged:files.length,chat,chatElapsedMs:Date.now()-started,workState:state.sections?.workStatus??state.workStatus??null,health};
+fs.writeFileSync(path.join(root,'integration-result.json'),JSON.stringify(result,null,2));
+console.log(JSON.stringify(result));assert.equal(chat.ok,true,'原宠物聊天入口未成功');

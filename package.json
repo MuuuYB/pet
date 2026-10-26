@@ -1,0 +1,20 @@
+{
+  "name": "chatgpt-whale-companion",
+  "version": "1.0.0",
+  "description": "保留 dsh-pet 动画和交互的 ChatGPT 桌面伴侣",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "start": "node src/launcher.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check:live": "node tools/final-check.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.135.0",
+    "@electron-internal/extract-zip": "1.0.6",
+    "@electron/get": "5.1.0",
+    "openai": "7.39.0",
+    "zod": "4.6.7"
+  }
+}

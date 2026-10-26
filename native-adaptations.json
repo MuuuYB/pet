@@ -1,0 +1,17 @@
+[
+  {
+    "file": "vendor/dsh-pet/runtime/electron-helper/main.js",
+    "beforeSha256": "82446ade7388da6d09a1de655156ebd458657844dbffa3df22ed235672774ab0",
+    "afterSha256": "853567a6a7190922fdc529cd3791bb4f612cbabc6b36ab6d4d4683ed5692e4fc"
+  },
+  {
+    "file": "vendor/dsh-pet/runtime/electron-helper/sprite.js",
+    "beforeSha256": "850b06d8ce9fa18cdfe035c7690c5ccf013971a7627f0bb54771e1a0555192a0",
+    "afterSha256": "8f7451555a3e9a488ff9d07af6c326be56b7d43dc4242547ca4c4eb9906836d4"
+  },
+  {
+    "file": "src/launcher.mjs",
+    "beforeSha256": "19e9cb85c6fe8480ce4adbd545ded1f983302357de8b3d53caf48ed4bedb6258",
+    "afterSha256": "5ffdb5df36fc7a1464335fdb3175f571cc4c6c531426041f18d8dd549d1ed0ea"
+  }
+]

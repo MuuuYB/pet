@@ -1,0 +1,15 @@
+{
+  "pets": [
+    {
+      "id": "main",
+      "name": "鲸鱼娘（ChatGPT）",
+      "size": 462,
+      "balanceEnabled": false,
+      "whisperEnabled": true,
+      "workStatusEnabled": true,
+      "fixedEnabled": false,
+      "display": "desktop",
+      "position": { "corner": "top-right", "marginX": 24, "marginY": 100 }
+    }
+  ]
+}
