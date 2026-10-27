@@ -60,5 +60,10 @@ update("vendor/dsh-pet/runtime/electron-helper/main.js",[["if (destination === '
 update("vendor/dsh-pet/runtime/electron-helper/events.js",[["  this.prevWorkTick = tick;","  // Explicit animations (feeding, petting) finish before automatic work poses.\n  if (this.playback) { this.pendingWorkTick = { snapshot, tick }; return; }\n  this.pendingWorkTick = null;\n  this.prevWorkTick = tick;"]]);
 update("vendor/dsh-pet/runtime/electron-helper/events.js",[["  if (anim !== false) {","  if (anim !== false && !this.playback) {"]]);
 update("vendor/dsh-pet/runtime/electron-helper/sprite.js",[["    const { animations } = { animations: this.animations };","    const pendingWork = this.pendingWorkTick;\n    if (pendingWork) {\n      this.pendingWorkTick = null;\n      this.onWorkTick(pendingWork.snapshot, pendingWork.tick);\n      if (pendingWork.snapshot?.state) return;\n    }\n    const { animations } = { animations: this.animations };"]]);
+update('vendor/dsh-pet/runtime/electron-helper/main.js',[["const path = require('node:path');", "require('./linux-platform.js').configureLinuxWindowing(app);\nconst path = require('node:path');"]]);
+const linuxWindowing="// The companion moves its transparent windows continuously. Native Wayland does\n// not offer the positioning/always-on-top APIs needed by this window model.\nfunction configureLinuxWindowing(app, platform = process.platform) {\n  if (platform === 'linux') app.commandLine.appendSwitch('ozone-platform', 'x11');\n}\nmodule.exports = { configureLinuxWindowing };\n";
+const linuxFile='vendor/dsh-pet/runtime/electron-helper/linux-platform.js';
+fs.writeFileSync(path.join(root,linuxFile),linuxWindowing);
+modifications.push({file:linuxFile,beforeSha256:null,afterSha256:crypto.createHash('sha256').update(linuxWindowing).digest('hex')});
 fs.writeFileSync(path.join(root,'native-adaptations.json'),JSON.stringify(modifications,null,2));
 console.log(JSON.stringify({ok:true,changed:modifications.map(item=>item.file)}));

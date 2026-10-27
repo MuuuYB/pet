@@ -1,0 +1,42 @@
+name: Ubuntu 24.04 compatibility
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/ubuntu-24.04]
+permissions:
+  contents: read
+jobs:
+  ubuntu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - name: Shell syntax
+        run: for file in Setup.sh Start.sh Stop.sh Settings.sh; do bash -n "$file"; done
+      - name: Desktop libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth xwayland xdg-utils libgtk-3-0t64 libnss3 libasound2t64 libgbm1
+      - name: Prepare Electron
+        env:
+          DSH_HOME: ${{ github.workspace }}/data
+          DSH_PET_ELECTRON_MIRROR: https://github.com/electron/electron/releases/download/
+        run: |
+          node tools/linux-control.mjs init
+          node vendor/dsh-pet/scripts/ensure-electron.mjs
+          node tools/linux-control.mjs install
+          if test -e /sys/kernel/security/apparmor/profiles; then
+            for profile in data/chatgpt-whale-*.apparmor; do
+              target="/etc/apparmor.d/$(basename "$profile" .apparmor)"
+              sudo install -m 644 -- "$profile" "$target"
+              sudo apparmor_parser -r -- "$target"
+            done
+          fi
+      - name: Play original animation on a virtual desktop
+        run: xvfb-run -a node tools/linux-smoke.mjs

@@ -46,6 +46,7 @@ try {
   process.exit(3);
 }
 const { app, BrowserWindow, ipcMain, screen, shell, protocol, Tray, Menu, nativeImage } = electronApi;
+require('./linux-platform.js').configureLinuxWindowing(app);
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { readFileSync, writeFileSync } = require('node:fs');

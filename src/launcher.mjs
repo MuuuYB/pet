@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {spawn,spawnSync} from 'node:child_process';
 import {writePrivateJson} from './private-files.mjs';
+import {checkDesktopEnvironment} from './linux-support.mjs';
 import {findCodex,createCodexRunner} from './codex-chat.mjs';
 import {startGateway,MODEL} from './gateway.mjs';
 import {ActivityTracker,watchLocalSessions,createPetStatusWriter} from './session-status.mjs';
@@ -13,6 +14,9 @@ import {DASHBOARD,DASHBOARD_JS} from './dashboard.mjs';
 import {createCareStore,CARE_RULES} from './care.mjs';
 import {createCareRoutes} from './care-routes.mjs';
 
+checkDesktopEnvironment();
+// Desktop launchers do not load shell profiles (e.g. nvm). Keep this Node on PATH.
+if(process.platform==='linux')process.env.PATH=path.dirname(process.execPath)+path.delimiter+(process.env.PATH||'/usr/local/bin:/usr/bin:/bin');
 const root=fileURLToPath(new URL('../',import.meta.url));
 const home=path.join(root,'data');
 const runtimeFile=path.join(home,'bridge-runtime.json');
@@ -22,7 +26,7 @@ const configFile=path.join(root,'local-config.json');
 const config=fs.existsSync(configFile)?JSON.parse(fs.readFileSync(configFile,'utf8')):{};
 const codex=findCodex(config.codexExecutable);
 const auth=spawnSync(codex,['login','status'],{encoding:'utf8',windowsHide:true,timeout:15000});
-if(auth.status!==0)throw new Error('请先在 ChatGPT/Codex 客户端登录，再启动桌宠。');
+if(auth.status!==0)throw new Error(process.platform==='linux'?'请确认 codex 已安装，并在终端执行 codex login 后重试。':'请先在 ChatGPT/Codex 客户端登录，再启动桌宠。');
 let preferences={automaticWhispers:false};
 try{preferences={...preferences,...JSON.parse(fs.readFileSync(preferencesFile,'utf8'))};}catch{}
 const token=crypto.randomBytes(32).toString('base64url');

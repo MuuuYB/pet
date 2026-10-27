@@ -10,7 +10,11 @@
 - 官方 Codex CLI 可用，且 `codex login status` 成功。找不到命令时，可在本地配置中填写客户端自带的 `codex.exe` 路径。
 - 首次安装需要网络获取 npm 依赖及 Electron。聊天会使用当前账号额度。
 
-## 首次安装
+## Ubuntu 24.04 图形桌面
+
+Linux 适配在 `feat/ubuntu-24.04` 分支，Windows 当前发布分支仍为 `main`。首次运行 `bash Setup.sh`，按输出配置本项目 Electron 的 AppArmor 权限，再运行 `bash Start.sh`。支持 X11／XWayland，新增应用菜单入口、`Settings.sh` 和 `Stop.sh`。依赖、登录、首次配置与验证范围见 [Ubuntu 24.04 安装说明](docs/ubuntu-24.04.md)。
+
+## Windows 首次安装
 
 在 PowerShell 中执行：
 
