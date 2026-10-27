@@ -949,6 +949,29 @@ app.whenReady().then(() => {
   //     比 spawn 宿主 exe 干净——不必处理 ELECTRON_RUN_AS_NODE（spawn 继承它就成了 node 模式，起不了界面）
   //     与安装路径探测。
   //   site（dsh web / 独立模式）→ 原行为：系统默认浏览器打开站点。
+  // Only return public companion state; the local capability stays in the main process.
+  ipcMain.handle('pet:companion-state', async (event) => {
+    if (![...windows.values()].some(win => !win.isDestroyed() && win.webContents.id === event.sender.id)) {
+      throw new Error('桌宠窗口未授权');
+    }
+    try {
+      const control = new URL(process.env.CHATGPT_PET_CONTROL_URL || '');
+      if (control.protocol !== 'http:' || control.hostname !== '127.0.0.1') throw new Error('invalid endpoint');
+      const capability = new URLSearchParams(control.hash.slice(1)).get('token');
+      if (!capability) throw new Error('missing capability');
+      const response = await fetch(control.origin + '/control/state', {
+        headers: { authorization: 'Bearer ' + capability },
+        signal: AbortSignal.timeout(3000), redirect: 'error',
+      });
+      if (!response.ok) throw new Error('unavailable');
+      const state = await response.json();
+      if (typeof state.automaticWhispers !== 'boolean') throw new Error('invalid state');
+      return { automaticWhispers: state.automaticWhispers };
+    } catch {
+      throw new Error('自动碎碎念状态读取失败，请打开桌宠设置');
+    }
+  });
+
   ipcMain.on('pet:open-site', (event, payload) => {
     const url = payload && typeof payload === 'object' ? String(payload.url || '') : '';
     if (!/^https?:[/][/]/.test(url)) return;

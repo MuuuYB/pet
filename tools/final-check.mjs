@@ -12,6 +12,6 @@ const directory=path.join(root,'data','electron-profile');assert.ok(fs.existsSyn
 const native=fs.readFileSync(path.join(root,'vendor','dsh-pet','runtime','electron-helper','sprite.js'),'utf8');
 for(const label of ['打开 ChatGPT','桌宠设置','退出 ChatGPT 桌宠'])assert.ok(native.includes(label));
 const log=fs.readFileSync(path.join(root,'logs','pet.log'),'utf8');const launch=log.lastIndexOf('独立模式服务已监听');const currentLog=log.slice(launch);assert.ok(currentLog.includes('desktop helper started'));assert.ok(!currentLog.includes('Unable to create cache'));
-const response=await fetch(`http://127.0.0.1:${state.port}/control/state`,{headers:{authorization:'Bearer '+state.token}});const settings=await response.json();assert.equal(settings.automaticWhispers,false);
-const result={ok:true,petReady:true,nativeMenuAdapted:true,separateElectronProfile:true,cacheErrorsAfterLastLaunch:false,automaticWhispers:false,petPid:pet.pid,checkedAt:new Date().toISOString()};
+const response=await fetch(`http://127.0.0.1:${state.port}/control/state`,{headers:{authorization:'Bearer '+state.token}});const settings=await response.json();const preferences=JSON.parse(fs.readFileSync(path.join(root,'data','preferences.json'),'utf8'));assert.equal(typeof settings.automaticWhispers,'boolean');assert.equal(settings.automaticWhispers,preferences.automaticWhispers);
+const result={ok:true,petReady:true,nativeMenuAdapted:true,separateElectronProfile:true,cacheErrorsAfterLastLaunch:false,automaticWhispers:settings.automaticWhispers,petPid:pet.pid,checkedAt:new Date().toISOString()};
 fs.writeFileSync(path.join(root,'final-check.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));

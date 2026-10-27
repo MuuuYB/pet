@@ -1635,8 +1635,9 @@ class PetSprite {
     // 「查看余额」无条件显示（与浏览器端一致）：关了 balanceEnabled 的宠物也能点——手动请求不受开关限制
     //（该开关只关自动轮询与档位动画），点了一定给答复。
     tools.push({ label: '桌宠设置', action: 'chatgpt-settings' }, { label: '退出 ChatGPT 桌宠', action: 'chatgpt-quit' });
+    tools.push({ label: '自动碎碎念：读取中…', action: 'chatgpt-settings', hint: '点此设置' });
     tools.push(
-      { label: '碎碎念', action: 'whisper' },
+      { label: '手动说一句', action: 'whisper' },
       { label: '对话', action: 'chat' },
       { label: '回到初始位置', action: 'home' },
       // 显示位置（仅网页/仅桌面/两者/都不）：改这只宠物的 display 配置 + 宿主重载生效。
@@ -1674,6 +1675,19 @@ class PetSprite {
       },
     });
     this.menuClose = m.close;
+    // Read fresh state on each opening. A failed read is unknown, never a false "off".
+    const whisperLabel = [...m.el.querySelectorAll('.dsh-pet-menu-item > span:first-child')]
+      .find(label => label.textContent === '自动碎碎念：读取中…');
+    const readState = window.petBridge && window.petBridge.getCompanionState;
+    Promise.resolve().then(() => {
+      if (!readState) throw new Error('unavailable');
+      return readState();
+    }).then(state => {
+      if (typeof state?.automaticWhispers !== 'boolean') throw new Error('invalid state');
+      if (whisperLabel?.isConnected) whisperLabel.textContent = '自动碎碎念：' + (state.automaticWhispers ? '已开启' : '已关闭');
+    }).catch(() => {
+      if (whisperLabel?.isConnected) whisperLabel.textContent = '自动碎碎念：状态未知';
+    });
     this.syncInputRegions(); // mountContextMenu 完成布局后才能读取菜单矩形
   }
 
