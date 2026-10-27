@@ -978,7 +978,7 @@ app.whenReady().then(() => {
     const controlUrl = process.env.CHATGPT_PET_CONTROL_URL;
     if (controlUrl && [...windows.values()].some(win => win.webContents.id === event.sender.id)) {
       const destination = new URL(url).pathname;
-      if (destination === '/chatgpt-pet-settings') {
+      if (destination === '/chatgpt-pet-settings' || destination === '/chatgpt-pet-care') {
         shell.openExternal(controlUrl).catch(() => console.error('无法打开桌宠设置'));
         return;
       }

@@ -2,21 +2,26 @@
   {
     "file": "vendor/dsh-pet/runtime/electron-helper/main.js",
     "beforeSha256": "82446ade7388da6d09a1de655156ebd458657844dbffa3df22ed235672774ab0",
-    "afterSha256": "a784a98826cda0f4f19e221c26a30d3db741e883b5d714aacdd96c0c092e2eb3"
+    "afterSha256": "7a39c9327ad01c5a572e516f70cc538fbced4dc14af22682cc205f2007e5e182"
   },
   {
     "file": "vendor/dsh-pet/runtime/electron-helper/sprite.js",
     "beforeSha256": "850b06d8ce9fa18cdfe035c7690c5ccf013971a7627f0bb54771e1a0555192a0",
-    "afterSha256": "bb86d75b3636c10c049e8b0697e555f7285364e0f614ecfd2d366bcfa36bc8ca"
+    "afterSha256": "7eb4a7dd36e95e4c09bb74c3dfadd7de9b1214123226d1ae1865fb9d5dfaff79"
   },
   {
     "file": "src/launcher.mjs",
     "beforeSha256": "19e9cb85c6fe8480ce4adbd545ded1f983302357de8b3d53caf48ed4bedb6258",
-    "afterSha256": "5ffdb5df36fc7a1464335fdb3175f571cc4c6c531426041f18d8dd549d1ed0ea"
+    "afterSha256": "adce632c70caca77e354bb9cc1ad969f52386f82960c7648ec74df4d6ae191c8"
   },
   {
     "file": "vendor/dsh-pet/runtime/electron-helper/preload.js",
     "beforeSha256": "e3420829cadf117e12624a2758aed44c0e2abe08d72be2ea466e7270003bcd4d",
     "afterSha256": "95cab3e1266152413d4a5181fe13a25f8f4c7191723fe921bb91b6cb1b4330a9"
+  },
+  {
+    "file": "vendor/dsh-pet/runtime/electron-helper/events.js",
+    "beforeSha256": "d892310ba0961d073682634374143ee7cb1c03c2eae32b24e736a721744e76b8",
+    "afterSha256": "eb604be90d588d392a6383e80ca696d5e73fecb08c2984d1628a68d9cb0acf5e"
   }
 ]

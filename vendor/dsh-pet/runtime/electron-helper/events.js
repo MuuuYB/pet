@@ -14,6 +14,9 @@
 PetSprite.prototype.onWorkTick = function onWorkTick(snapshot, tick) {
   if (!this.pet.workStatusEnabled) return; // 未启用工作状态联动 -> 该宠物完全免疫（与浏览器一致）
   if (tick === 0 || tick === this.prevWorkTick) return;
+  // Explicit animations (feeding, petting) finish before automatic work poses.
+  if (this.playback) { this.pendingWorkTick = { snapshot, tick }; return; }
+  this.pendingWorkTick = null;
   this.prevWorkTick = tick;
   // 占用锁（issue #122 第 4 项）：锁生效时不响应工作状态——它是**自动**来源（任务事件驱动），
   // 没有"用户手动要"这条路。判在 tick 消费**之后**：占用期间的变化当过去了，解冻时由
@@ -165,7 +168,7 @@ PetSprite.prototype.clearWhisper = function clearWhisper() {
 //     （要收起它请用 POST /bubble/clear，两件事不重叠）。
 PetSprite.prototype.showWhisper = function showWhisper(text, image, url, duration, anim) {
   let name = null;
-  if (anim !== false) {
+  if (anim !== false && !this.playback) {
     const pool = this.animations.events?.whisper;
     if (!pool || pool.length === 0) {
       console.error('[dsh-pet] 配置缺少 animations.events.whisper，无法播放碎碎念动画');

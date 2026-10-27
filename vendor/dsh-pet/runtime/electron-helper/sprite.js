@@ -715,6 +715,12 @@ class PetSprite {
     // 带 anim 的气泡（默认就是 true），说话动画播完就把工作状态动画点回来，冻结形同虚设。
     // 播放回执已经在上面上报，不受这一行影响。
     if (this.frozen) return;
+    const pendingWork = this.pendingWorkTick;
+    if (pendingWork) {
+      this.pendingWorkTick = null;
+      this.onWorkTick(pendingWork.snapshot, pendingWork.tick);
+      if (pendingWork.snapshot?.state) return;
+    }
     const { animations } = { animations: this.animations };
     // 事件动画播完：回 idle（与 drag/clicks 同分支，不进随机链）；气泡由定时器自动消失，与动画解耦
     const isEvent = S.isEventAnim(animations.events, this.anim);
@@ -1635,6 +1641,7 @@ class PetSprite {
     // 「查看余额」无条件显示（与浏览器端一致）：关了 balanceEnabled 的宠物也能点——手动请求不受开关限制
     //（该开关只关自动轮询与档位动画），点了一定给答复。
     tools.push({ label: '桌宠设置', action: 'chatgpt-settings' }, { label: '退出 ChatGPT 桌宠', action: 'chatgpt-quit' });
+    tools.push({ label: '喂食与金币', action: 'chatgpt-care', hint: '小食堂' });
     tools.push({ label: '自动碎碎念：读取中…', action: 'chatgpt-settings', hint: '点此设置' });
     tools.push(
       { label: '手动说一句', action: 'whisper' },
@@ -1704,6 +1711,10 @@ class PetSprite {
           /* 上报失败不影响本地：注册方下次轮询自然拿不到这次触发 */
         });
       }
+      return;
+    }
+    if (leaf.action === 'chatgpt-care') {
+      if (window.petBridge) window.petBridge.openDshSite(ORIGIN + '/chatgpt-pet-care');
       return;
     }
     if (leaf.action === 'chatgpt-settings' || leaf.action === 'chatgpt-quit') {

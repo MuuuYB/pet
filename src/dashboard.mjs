@@ -1,3 +1,4 @@
+import {CARE_CSS,CARE_HTML,CARE_JS} from './care-ui.mjs';
 export const DASHBOARD = `<!doctype html>
 <html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>鲸鱼娘 · ChatGPT</title>
@@ -12,9 +13,11 @@ button.secondary{background:#edf2fa;color:#334d71}button:disabled{cursor:wait;op
 .whisper-status[data-state="on"]{color:#147448}.whisper-status[data-state="off"]{color:#526076}
 #whispers[data-state="on"]{background:#edf2fa;color:#334d71}#result{white-space:pre-wrap;min-height:24px;padding:12px 0}small{color:#6e7d94}
 @media(max-width:720px){main{margin:20px 12px;padding:24px}}
+${CARE_CSS}
 </style>
 <main><span class="pill" id="status">正在连接</span><h1>鲸鱼娘 · ChatGPT</h1>
 <p>原有动作、拖拽和右键菜单继续使用。聊天通过这台电脑已登录的 ChatGPT 账号完成。</p>
+${CARE_HTML}
 <button id="test">试着聊一句</button><button class="secondary" id="open">打开客户端</button>
 <section class="whisper-card" aria-labelledby="whisper-heading"><h2 id="whisper-heading">自动碎碎念</h2>
 <p class="whisper-status" id="whisper-status" role="status" aria-live="polite">正在读取状态…</p>
@@ -30,7 +33,7 @@ history.replaceState(null,'',location.pathname);
 const el=id=>document.getElementById(id);
 let automaticWhispers=null,saving=false,refreshSequence=0;
 async function request(path,body){
-  const response=await fetch(path,{method:body===undefined?'GET':'POST',headers:{'content-type':'application/json',authorization:'Bearer '+token},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(path==='/v1/chat/completions'?65000:8000)});
+  const response=await fetch(path,{method:body===undefined?'GET':'POST',headers:{'content-type':'application/json',authorization:'Bearer '+token},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(path==='/v1/chat/completions'?65000:path==='/control/care/action'?15000:8000)});
   const result=await response.json();
   if(!response.ok)throw new Error(result.error?.message||'连接失败');
   return result;
@@ -91,4 +94,5 @@ el('quit').onclick=async()=>{
 window.addEventListener('focus',()=>{if(!saving)void refresh();});
 setInterval(()=>{if(!saving&&!document.hidden)void refresh();},5000);
 void refresh();
+${CARE_JS}
 `;

@@ -10,6 +10,8 @@ import {findCodex,createCodexRunner} from './codex-chat.mjs';
 import {startGateway,MODEL} from './gateway.mjs';
 import {ActivityTracker,watchLocalSessions,createPetStatusWriter} from './session-status.mjs';
 import {DASHBOARD,DASHBOARD_JS} from './dashboard.mjs';
+import {createCareStore,CARE_RULES} from './care.mjs';
+import {createCareRoutes} from './care-routes.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const home=path.join(root,'data');
@@ -27,8 +29,9 @@ const token=crypto.randomBytes(32).toString('base64url');
 const instanceId=crypto.randomUUID();
 const workspace=path.join(home,'chat-workspace');
 fs.mkdirSync(workspace,{recursive:true});fs.mkdirSync(path.join(root,'logs'),{recursive:true});
+const care=createCareStore({file:path.join(home,'care-save.json')});
 const writer=createPetStatusWriter(home);
-const tracker=new ActivityTracker(value=>writer.set(value));
+const tracker=new ActivityTracker(value=>writer.set(value),()=>Date.now(),{onTaskComplete:key=>care.rewardTask(key)});
 let pet,petReady=false,stopping=false,unwatch=()=>{};
 const timer=setInterval(()=>tracker.publish(),1000);
 const runChat=createCodexRunner({executable:codex,cwd:workspace});
@@ -41,6 +44,12 @@ async function petCall(url,{method='GET',body}={}){
   if(!response.ok)throw new Error('桌宠设置暂时不可用');
   return response.status===204?{}:await response.json();
 }
+const careRoutes=createCareRoutes({care,isPetReady:()=>petReady,playEffect:async effect=>{
+  const animation=await petCall('/dsh-pet-7340/anim?pet=main&surface=desktop',{method:'POST',body:{name:effect.animation}});
+  if(!animation.ok)throw new Error('桌宠动作暂不可用');
+  try{await petCall('/dsh-pet-7340/broadcast?pet=main&surface=desktop',{method:'POST',body:{text:effect.text,duration:CARE_RULES.feedMs,anim:false}});}catch{}
+  return {accepted:true,playbackId:animation.playbackId};
+}});
 const gateway=await startGateway({token,runChat,onState:state=>tracker.update('pet-chat',state),getExtraHealth:()=>({pid:process.pid,instanceId,petReady,activeLocalTasks:tracker.snapshot().activeCount}),admin:{
   publicRoute(req,res,pathname){
     if(req.method==='GET'&&(pathname==='/'||pathname==='/dashboard.js')){
@@ -48,6 +57,7 @@ const gateway=await startGateway({token,runChat,onState:state=>tracker.update('p
     }return false;
   },
   async handle(req,res,pathname,readBody){
+    if(await careRoutes(req,res,pathname,readBody))return;
     if(pathname==='/control/state'&&req.method==='GET')return json(res,200,{petReady,automaticWhispers:preferences.automaticWhispers});
     if(pathname==='/control/preferences'&&req.method==='POST'){
       const body=await readBody();if(typeof body.automaticWhispers!=='boolean')return json(res,400,{error:{message:'碎碎念开关无效'}});

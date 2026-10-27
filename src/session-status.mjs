@@ -1,10 +1,11 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 const STATE_TEXT={thinking:'ChatGPT 正在思考',working:'ChatGPT 正在处理任务',result:'ChatGPT 已完成一个步骤',waiting:'ChatGPT 需要你确认',success:'ChatGPT 任务完成啦',error:'ChatGPT 任务遇到问题'};
 export class ActivityTracker {
-  constructor(onChange=()=>{},now=()=>Date.now()){this.onChange=onChange;this.now=now;this.active=new Map();this.lastOutcome=null;this.previous='';}
+  constructor(onChange=()=>{},now=()=>Date.now(),{onTaskComplete=()=>{}}={}){this.onTaskComplete=onTaskComplete;this.rewardTurns=new Map();this.onChange=onChange;this.now=now;this.active=new Map();this.lastOutcome=null;this.previous='';}
   update(id,state,{initial=false}={}){
     if(state==='success'||state==='error'){
       this.active.delete(id);
@@ -15,6 +16,17 @@ export class ActivityTracker {
   }
   consume(id,record,{initial=false}={}){
     const p=record?.payload;
+    if(record?.type==='event_msg'&&p?.type==='task_started'){
+      this.rewardTurns.set(id,{key:id+'\0'+String(p.turn_id||record.timestamp||crypto.randomUUID()),eligible:!initial,completed:false});
+    }
+    if(record?.type==='event_msg'&&p?.type==='task_complete'){
+      const turn=this.rewardTurns.get(id);
+      if(turn&&!initial&&turn.eligible&&!turn.completed){
+        turn.completed=true;
+        try{this.onTaskComplete(turn.key);}catch{ /* A save failure must not disrupt task status watching. */ }
+      }
+    }
+    if(record?.type==='event_msg'&&['turn_aborted','turn_failed','error'].includes(p?.type))this.rewardTurns.delete(id);
     if(record?.type==='event_msg'){
       if(p?.type==='task_started')this.update(id,'thinking',{initial});
       else if(p?.type==='task_complete')this.update(id,'success',{initial});
