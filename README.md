@@ -59,6 +59,26 @@ JSON 中 Windows 路径的反斜线需写成 `\\`，也可用 `/`。本地配置
 
 可以为 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "<项目绝对路径>\Start.ps1"` 创建桌面快捷方式。
 
+## 跟随 Codex 启动（Windows）
+
+执行一次：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Enable-CodexAutostart.ps1
+```
+
+这会在当前用户的 Windows 登录启动目录创建本桌宠的监听快捷方式，并立即启动后台监听。每 3 秒检查当前桌面会话中的官方 Codex／ChatGPT 主窗口，发现打开客户端时调用 `Start.ps1 -Silent`。客户端升级后的 WindowsApps 路径也会被识别；没有窗口的 CLI、GPU 等子进程不触发。
+
+已有桌宠不会重复启动或弹出设置页；手动退出桌宠后，本次客户端会话内不再自动拉起。关闭客户端窗口被监听到后，再打开窗口或启动新的客户端进程时会重新联动。关闭客户端不会自动关闭桌宠。首次启动失败最多尝试 3 次，间隔至少 30 秒，日志位于 `logs/codex-autostart.log`。
+
+取消联动：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Disable-CodexAutostart.ps1
+```
+
+它仅移除本项目的登录启动项，监听程序会在数秒内退出，当前桌宠继续运行。移动项目目录后请先在旧目录关闭联动，再到新目录重新启用。该功能属于本桌宠的 Windows 启动集成，未修改 Codex 的配置或程序文件。
+
 ## 接入方式与限制
 
 聊天经仅监听 `127.0.0.1` 的兼容接口交给 `codex exec`。使用 CLI 默认模型与低推理强度，复用官方 CLI 登录，无需另填 OpenAI API Key。CLI 参数适配当前客户端版本，后续升级可能需要调整。

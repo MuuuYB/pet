@@ -1,19 +1,15 @@
-﻿param([switch]$OpenSettings)
+﻿param([switch]$OpenSettings,[switch]$Silent)
 $ErrorActionPreference = 'Stop'
 $taskRoot = $PSScriptRoot
-$runtimeFile = Join-Path $taskRoot 'data\bridge-runtime.json'
-function Get-RunningCompanion {
-  if (-not (Test-Path -LiteralPath $runtimeFile)) { return $null }
-  try {
-    $state = Get-Content -LiteralPath $runtimeFile -Raw -Encoding UTF8 | ConvertFrom-Json
-    $health = Invoke-RestMethod -Uri ("http://127.0.0.1:{0}/health" -f $state.port) -TimeoutSec 2
-    if ($health.ok -and $health.instanceId -eq $state.instanceId) { return $state }
-  } catch {}
-  return $null
-}
-$running = Get-RunningCompanion
+Import-Module (Join-Path $taskRoot 'tools\windows-startup.psm1') -Force
+$mutex=[Threading.Mutex]::new($false,(Get-WhaleMutexName $taskRoot 'start'))
+$locked=$false
+try {
+  try{$locked=$mutex.WaitOne([TimeSpan]::FromSeconds(60))}catch [Threading.AbandonedMutexException]{$locked=$true}
+  if(-not $locked){throw '另一个桌宠启动操作尚未完成，请稍后重试。'}
+$running = Get-WhaleRuntime $taskRoot
 if ($running) {
-  Start-Process -FilePath $running.controlUrl
+  if (-not $Silent -or $OpenSettings) { Start-Process -FilePath $running.controlUrl }
   exit 0
 }
 $nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
@@ -26,7 +22,7 @@ $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $process = Start-Process -FilePath $nodePath -ArgumentList @(('"{0}"' -f $launchFile)) -WorkingDirectory $taskRoot -WindowStyle Hidden -RedirectStandardOutput (Join-Path $logDirectory "$stamp-bridge.log") -RedirectStandardError (Join-Path $logDirectory "$stamp-bridge-error.log") -PassThru
 for ($attempt = 0; $attempt -lt 80; $attempt++) {
   Start-Sleep -Milliseconds 250
-  $running = Get-RunningCompanion
+  $running = Get-WhaleRuntime $taskRoot
   if ($running) {
     if ($OpenSettings) { Start-Process -FilePath $running.controlUrl }
     Write-Output 'ChatGPT 鲸鱼娘已启动。再次运行本快捷方式可打开设置。'
@@ -36,3 +32,4 @@ for ($attempt = 0; $attempt -lt 80; $attempt++) {
   if ($process.HasExited) { throw "桌宠启动失败，请查看 $logDirectory 中最新的 bridge-error.log。" }
 }
 throw '桌宠启动未就绪，请查看 logs 文件夹。'
+} finally { if($locked){$mutex.ReleaseMutex()};$mutex.Dispose() }
