@@ -63,4 +63,58 @@ function Get-WhaleStartupShortcut {
   $key=(Get-WhaleMutexName $TaskRoot 'watch').Split('-')[-1]
   return Join-Path ([Environment]::GetFolderPath('Startup')) ("鲸鱼娘 Codex 联动-$key.lnk")
 }
-Export-ModuleMember -Function Get-WhaleMutexName,Get-WhaleRuntime,Get-CodexDesktopKey,Get-WhaleAutostartDecision,Write-WhaleJson,Get-WhaleStartupShortcut
+function Get-WhaleScheduledTaskSpec {
+  param([string]$TaskRoot)
+  $root=[IO.Path]::GetFullPath($TaskRoot)
+  $key=(Get-WhaleMutexName $root 'watch').Split('-')[-1]
+  $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+  return [pscustomobject]@{
+    TaskName="WhalePet-Codex-$key-$sid"
+    UserId=$sid
+    Execute=(Join-Path ([Environment]::GetFolderPath('System')) 'WindowsPowerShell\v1.0\powershell.exe')
+    Arguments=('-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "'+(Join-Path $root 'Watch-Codex.ps1')+'"')
+    WorkingDirectory=$root
+  }
+}
+function Test-WhaleScheduledTaskOwner {
+  param($Task,$Spec)
+  try {
+    $actions=@($Task.Actions)
+    $user=[string]$Task.Principal.UserId
+    if($user -notmatch '^S-1-'){$user=([Security.Principal.NTAccount]::new($user)).Translate([Security.Principal.SecurityIdentifier]).Value}
+    return ($Task.TaskName -eq $Spec.TaskName -and $Task.TaskPath -eq '\' -and $user -eq $Spec.UserId -and $actions.Count -eq 1 -and
+      $actions[0].Execute -eq $Spec.Execute -and $actions[0].Arguments -ceq $Spec.Arguments -and $actions[0].WorkingDirectory -eq $Spec.WorkingDirectory)
+  }catch{return $false}
+}
+function New-WhaleScheduledTaskDefinition {
+  param($Spec)
+  $action=New-ScheduledTaskAction -Execute $Spec.Execute -Argument $Spec.Arguments -WorkingDirectory $Spec.WorkingDirectory
+  $login=New-ScheduledTaskTrigger -AtLogOn -User $Spec.UserId
+  # The repeating trigger also recovers a watcher that exits with code 0.
+  # A running instance is ignored, so there is only one long-lived watcher.
+  $recovery=New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1)
+  $settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero) -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+  $principal=New-ScheduledTaskPrincipal -UserId $Spec.UserId -LogonType Interactive -RunLevel Limited
+  return New-ScheduledTask -Action $action -Trigger @($login,$recovery) -Settings $settings -Principal $principal -Description '鲸鱼娘：登录后监听 Codex 窗口，监听退出后自动恢复。'
+}
+function Remove-WhaleLegacyStartupShortcut {
+  param([string]$TaskRoot)
+  $link=Get-WhaleStartupShortcut $TaskRoot
+  if(-not (Test-Path -LiteralPath $link)){return}
+  $spec=Get-WhaleScheduledTaskSpec $TaskRoot
+  $shell=New-Object -ComObject WScript.Shell
+  try {
+    $shortcut=$shell.CreateShortcut($link)
+    if($shortcut.TargetPath -ne $spec.Execute -or $shortcut.Arguments -cne $spec.Arguments){throw '同名登录启动项不属于本桌宠，未删除。'}
+    Remove-Item -LiteralPath $link
+  }finally{[Runtime.InteropServices.Marshal]::FinalReleaseComObject($shell) | Out-Null}
+}
+function Read-WhaleAutostartPolicy {
+  param([string]$File,[long]$Now)
+  try {
+    $saved=(Get-Content -LiteralPath $File -Raw -Encoding UTF8 | ConvertFrom-Json).policy
+    if($saved.SessionKey -isnot [string] -or $saved.Completed -isnot [bool] -or $saved.Attempts -notmatch '^[0-3]$' -or $saved.NextAttemptAt -notmatch '^\d+$'){return $null}
+    return [pscustomobject]@{SessionKey=$saved.SessionKey;Completed=$saved.Completed;Attempts=[int]$saved.Attempts;NextAttemptAt=[Math]::Min([long]$saved.NextAttemptAt,$Now+30000);ShouldStart=$false}
+  }catch{return $null}
+}
+Export-ModuleMember -Function Get-WhaleMutexName,Get-WhaleRuntime,Get-CodexDesktopKey,Get-WhaleAutostartDecision,Write-WhaleJson,Get-WhaleStartupShortcut,Get-WhaleScheduledTaskSpec,Test-WhaleScheduledTaskOwner,New-WhaleScheduledTaskDefinition,Remove-WhaleLegacyStartupShortcut,Read-WhaleAutostartPolicy

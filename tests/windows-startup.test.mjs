@@ -52,9 +52,47 @@ $settingsFile=Join-Path $PSScriptRoot 'settings.json'
 Write-WhaleJson $settingsFile @{enabled=$true}
 Write-WhaleJson $settingsFile @{enabled=$false}
 Assert-True ((Get-Content -LiteralPath $settingsFile -Raw|ConvertFrom-Json).enabled -eq $false) 'atomic settings replacement works on Windows PowerShell 5'
+$state=Get-WhaleAutostartDecision $null 'saved-session' $true 100000
+Write-WhaleJson $settingsFile @{policy=$state}
+$restored=Read-WhaleAutostartPolicy $settingsFile 101000
+$restored=Get-WhaleAutostartDecision $restored 'saved-session' $false 102000
+Assert-True ($restored.Completed -and -not $restored.ShouldStart) 'watcher recovery must preserve manual pet exit'
+$restored=Get-WhaleAutostartDecision $restored 'new-session' $false 103000
+Assert-True ($restored.ShouldStart) 'new Codex session launches after watcher recovery'
+Write-WhaleJson $settingsFile @{policy=$restored}
+$restored=Read-WhaleAutostartPolicy $settingsFile 104000
+$restored=Get-WhaleAutostartDecision $restored 'new-session' $false 104000
+Assert-True ($restored.Attempts -eq 1 -and -not $restored.ShouldStart) 'recovery retains retry count and cooldown'
+Write-WhaleJson $settingsFile @{policy=@{SessionKey='A';Completed='false';Attempts=1;NextAttemptAt=0}}
+Assert-True ($null -eq (Read-WhaleAutostartPolicy $settingsFile 100)) 'invalid persisted state is ignored'
 Write-Output 'policy-ok'
 `);
   assert.match((await powershell(file)).stdout,/policy-ok/);
+});
+
+test('scheduled watcher is interactive, bounded to its owner, and recovers without expiring',{skip:!windows},async t=>{
+  const dir=fixture(t),file=path.join(dir,'task-definition.ps1');
+  fs.writeFileSync(file,'\ufeff'+String.raw`
+$ErrorActionPreference='Stop'
+Import-Module ${quote(path.join(root,'tools/windows-startup.psm1'))} -Force
+function Assert-True($condition,$message){if(-not $condition){throw $message}}
+$spec=Get-WhaleScheduledTaskSpec $PSScriptRoot
+$definition=New-WhaleScheduledTaskDefinition $spec
+Assert-True ($definition.Principal.LogonType -eq 'Interactive') 'only current logged-in desktop'
+Assert-True ($definition.Principal.RunLevel -eq 'Limited') 'no elevation'
+Assert-True ($definition.Settings.ExecutionTimeLimit -eq 'PT0S') 'do not expire after three days'
+Assert-True (-not $definition.Settings.DisallowStartIfOnBatteries -and -not $definition.Settings.StopIfGoingOnBatteries) 'battery must not stop watcher'
+Assert-True ($definition.Settings.MultipleInstances -eq 'IgnoreNew') 'only one scheduled instance'
+$repeat=@($definition.Triggers | Where-Object {$_.Repetition.Interval -eq 'PT1M'})
+Assert-True ($repeat.Count -eq 1 -and -not $repeat[0].Repetition.Duration -and -not $repeat[0].EndBoundary) 'unbounded minute recovery trigger'
+Assert-True (@($definition.Triggers | Where-Object {$_.CimClass.CimClassName -eq 'MSFT_TaskLogonTrigger'}).Count -eq 1) 'logon trigger exists'
+$owned=[pscustomobject]@{TaskName=$spec.TaskName;TaskPath='\';Actions=$definition.Actions;Principal=$definition.Principal}
+Assert-True (Test-WhaleScheduledTaskOwner $owned $spec) 'recognize own task'
+$owned.Actions[0].Arguments+=' -Other'
+Assert-True (-not (Test-WhaleScheduledTaskOwner $owned $spec)) 'never replace or remove a modified task'
+Write-Output 'task-definition-ok'
+`);
+  assert.match((await powershell(file)).stdout,/task-definition-ok/);
 });
 
 test('concurrent silent Windows starters create only one companion and do not open settings',{skip:!windows},async t=>{

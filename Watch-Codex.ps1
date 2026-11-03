@@ -13,10 +13,12 @@ try {
   [IO.Directory]::CreateDirectory($logDirectory) | Out-Null
   $logFile=Join-Path $logDirectory 'codex-autostart.log'
   $sessionId=(Get-Process -Id $PID).SessionId
-  $policy=$null
+  $policy=Read-WhaleAutostartPolicy $statusFile ([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())
   $lastKey=$null
   $phase='waiting-for-codex'
-  Write-WhaleJson $statusFile @{pid=$PID;phase=$phase;startedAt=[DateTime]::UtcNow.ToString('o')}
+  $startedAt=[DateTime]::UtcNow.ToString('o')
+  $lastStatusAt=0L
+  Add-Content -LiteralPath $logFile -Encoding UTF8 -Value ((Get-Date -Format s)+" watcher started; pid=$PID")
   while($true){
     try{
       if(-not (Test-Path -LiteralPath $settingsFile)){break}
@@ -29,9 +31,12 @@ try {
       $key=Get-CodexDesktopKey -Processes $processes -SessionId $sessionId -ConfiguredExecutable $configured
       $running=$false
       if($key -and (-not $policy -or $policy.SessionKey -ne $key -or -not $policy.Completed)){$running=$null -ne (Get-WhaleRuntime $taskRoot)}
-      $policy=Get-WhaleAutostartDecision -State $policy -SessionKey $key -Running $running -Now ([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())
+      $now=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+      $policy=Get-WhaleAutostartDecision -State $policy -SessionKey $key -Running $running -Now $now
       $changed=$key -ne $lastKey
       if($policy.ShouldStart){
+        # Persist the attempt before launching, including across watcher recovery.
+        Write-WhaleJson $statusFile @{pid=$PID;phase='starting';sessionKey=$key;attempts=$policy.Attempts;policy=$policy;startedAt=$startedAt;checkedAt=[DateTime]::UtcNow.ToString('o')}
         Add-Content -LiteralPath $logFile -Encoding UTF8 -Value ((Get-Date -Format s)+' detected Codex; starting companion')
         $powershell=Join-Path $PSHOME 'powershell.exe'
         $arguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',('"{0}"' -f (Join-Path $taskRoot 'Start.ps1')),'-Silent')
@@ -44,7 +49,10 @@ try {
         Add-Content -LiteralPath $logFile -Encoding UTF8 -Value ((Get-Date -Format s)+" start result: $phase; starterExited=$starterExited")
         $changed=$true
       }elseif(-not $key){$phase='waiting-for-codex'}elseif($policy.Completed){$phase='session-handled'}elseif($policy.Attempts -ge 3){$phase='failed'}
-      if($changed){Write-WhaleJson $statusFile @{pid=$PID;phase=$phase;sessionKey=$key;attempts=$policy.Attempts;checkedAt=[DateTime]::UtcNow.ToString('o')}}
+      if($changed -or $now-$lastStatusAt -ge 60000){
+        Write-WhaleJson $statusFile @{pid=$PID;phase=$phase;sessionKey=$key;attempts=$policy.Attempts;policy=$policy;startedAt=$startedAt;checkedAt=[DateTime]::UtcNow.ToString('o')}
+        $lastStatusAt=$now
+      }
       $lastKey=$key
     }catch{
       Add-Content -LiteralPath $logFile -Encoding UTF8 -Value ((Get-Date -Format s)+' watcher check failed: '+$_.Exception.Message)
@@ -52,4 +60,5 @@ try {
     Start-Sleep -Seconds $PollSeconds
   }
   Write-WhaleJson $statusFile @{pid=$PID;phase='disabled';checkedAt=[DateTime]::UtcNow.ToString('o')}
+  Add-Content -LiteralPath $logFile -Encoding UTF8 -Value ((Get-Date -Format s)+" watcher disabled; pid=$PID")
 }finally{if($locked){$mutex.ReleaseMutex()};$mutex.Dispose()}
